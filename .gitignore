@@ -1,0 +1,10 @@
+__pycache__/
+.venv/
+evidence/
+*.pem
+.azure/
+.env
+.env.*
+!.env.g2.example
+.g2-output/
+*.log

@@ -30,18 +30,31 @@ async def main(drill: str, engineer: bool) -> int:
                                                "propose recovery options.",
                                        "observed": {"baseline": "PASS", "during_fault": "FAIL at place-order"}})
     print(json.dumps(out.model_dump(), indent=2))
-    print(usage, "| checks:", check_options(out.recovery_options, policy, drill) or "ok",
-          check_secrets(out.model_dump()) or "ok")
+    option_error = check_options(out.recovery_options, policy, drill)
+    secret_error = check_secrets(out.model_dump())
+    print(usage, "| checks:", option_error or "ok", secret_error or "ok")
+    if option_error or secret_error:
+        print("Planner options smoke FAILED validation; Engineer will not run")
+        return 2
     out, usage = await agents.planner({"task": "remediation_brief", "drill_id": drill, "output_stage": "brief",
                                        "goal": "Infrastructure is green but the customer journey still fails.",
                                        "failed_journey": FAILED, "earlier_hypothesis": out.recovery_options.hypothesis})
     print(json.dumps(out.model_dump(), indent=2))
-    print(usage, "| checks:", check_brief(out.remediation_brief, policy, drill) or "ok")
+    brief_error = check_brief(out.remediation_brief, policy, drill)
+    brief_secret_error = check_secrets(out.model_dump())
+    print(usage, "| checks:", brief_error or "ok", brief_secret_error or "ok")
+    if brief_error or brief_secret_error:
+        print("Planner brief smoke FAILED validation; Engineer will not run")
+        return 2
     if engineer:
         report, usage = await agents.engineer({"task": "candidate", "drill_id": drill, "attempt": 1,
                                                "base_ref": "main", "brief": out.remediation_brief.model_dump()})
         print(json.dumps(report.model_dump(), indent=2))
-        print(usage)
+        report_secret_error = check_secrets(report.model_dump())
+        print(usage, "| secret check:", report_secret_error or "ok")
+        if report_secret_error:
+            print("Engineer output smoke FAILED validation")
+            return 2
     return 0
 
 
